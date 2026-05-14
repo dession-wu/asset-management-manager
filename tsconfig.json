@@ -19,7 +19,9 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@asset-manager/shared": ["../shared/index.ts"],
+      "@asset-manager/shared/*": ["../shared/*"]
     }
   },
   "include": [

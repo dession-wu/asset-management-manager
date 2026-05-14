@@ -1,36 +1,106 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 资产管理 Web 版
 
-## Getting Started
+基于 Next.js + Supabase 的无服务器个人资产管理平台。
 
-First, run the development server:
+## 技术栈
+
+- **前端**: Next.js 14 (App Router) + React + TypeScript + Tailwind CSS
+- **后端**: Next.js API Routes + Edge Middleware
+- **数据库**: Supabase PostgreSQL + Row Level Security
+- **认证**: JWT + Supabase Auth
+- **状态管理**: Zustand + persist
+- **部署**: Vercel (Serverless)
+
+## 快速开始
+
+### 1. 安装依赖
+
+```bash
+npm install
+```
+
+### 2. 配置环境变量
+
+```bash
+cp .env.local.example .env.local
+```
+
+编辑 `.env.local` 填入你的 Supabase 项目信息：
+
+```
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+JWT_SECRET=your-jwt-secret
+REFRESH_SECRET=your-refresh-secret
+```
+
+### 3. 初始化数据库
+
+在 Supabase SQL 编辑器中执行 `supabase/schema.sql` 中的 SQL 语句。
+
+### 4. 启动开发服务器
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+访问 http://localhost:3000
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 5. 运行测试
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm test
+```
 
-## Learn More
+## 部署到 Vercel
 
-To learn more about Next.js, take a look at the following resources:
+1. 推送代码到 GitHub
+2. 在 Vercel 导入项目
+3. 配置环境变量
+4. 自动部署
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 项目结构
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+asset-manager-web/
+├── src/
+│   ├── app/              # Next.js App Router
+│   │   ├── api/          # API Routes
+│   │   ├── login/        # 登录页面
+│   │   ├── register/     # 注册页面
+│   │   ├── assets/       # 资产管理
+│   │   ├── allocation/   # 配置分析
+│   │   ├── reports/      # 报表中心
+│   │   └── settings/     # 设置
+│   ├── components/       # React 组件
+│   ├── stores/           # Zustand 状态管理
+│   ├── hooks/            # 自定义 Hooks
+│   ├── lib/              # 工具函数
+│   ├── types/            # TypeScript 类型
+│   └── test/             # 测试文件
+├── supabase/             # 数据库 Schema
+└── public/               # 静态资源
+```
 
-## Deploy on Vercel
+## 功能特性
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- 用户注册/登录 (JWT 认证)
+- 资产 CRUD 管理
+- 资产配置分析
+- 报表导出 (CSV)
+- 响应式设计
+- PWA 支持
+- 离线缓存
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 安全特性
+
+- HTTPS 强制
+- Content Security Policy
+- Row Level Security (RLS)
+- JWT 认证
+- 输入验证 (Zod)
+- XSS/CSRF 防护
+
+## 许可证
+
+MIT
