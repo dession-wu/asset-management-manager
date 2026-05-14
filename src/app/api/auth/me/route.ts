@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/jwt'
-import { localStore } from '@/lib/localStore'
+import { supabase } from '@/lib/supabase'
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,10 +15,13 @@ export async function GET(request: NextRequest) {
     const token = authHeader.substring(7)
     const claims = await verifyToken(token)
 
-    const profile = await localStore.getProfileById(claims.sub)
-    const user = await localStore.getUserById(claims.sub)
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', claims.sub)
+      .single()
 
-    if (!profile || !user) {
+    if (error || !profile) {
       return NextResponse.json(
         { error: '用户不存在' },
         { status: 404 }
@@ -30,7 +33,7 @@ export async function GET(request: NextRequest) {
       email: profile.email,
       nickname: profile.nickname || profile.email.split('@')[0],
       avatar: profile.avatar_url,
-      role: user.role,
+      role: 'user',
       createdAt: profile.created_at,
       updatedAt: profile.updated_at,
     })

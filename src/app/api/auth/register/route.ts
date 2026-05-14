@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { createToken, createRefreshToken } from '@/lib/jwt'
-import { localStore } from '@/lib/localStore'
+import { supabase } from '@/lib/supabase'
 import { registerSchema } from '@/lib/validation'
 
 export async function POST(request: NextRequest) {
@@ -19,7 +19,12 @@ export async function POST(request: NextRequest) {
     const { email, password, nickname } = result.data
 
     // Check if user already exists
-    const existingUser = await localStore.findUserByEmail(email)
+    const { data: existingUser } = await supabase
+      .from('profiles')
+      .select('email')
+      .eq('email', email)
+      .single()
+
     if (existingUser) {
       return NextResponse.json(
         { error: '该邮箱已被注册' },
@@ -30,18 +35,43 @@ export async function POST(request: NextRequest) {
     // Hash password
     const passwordHash = await bcrypt.hash(password, 12)
 
-    // Create user in local store
-    const user = await localStore.createUser(email, passwordHash, nickname)
+    // Create user in Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+    })
+
+    if (authError) {
+      return NextResponse.json(
+        { error: authError.message },
+        { status: 400 }
+      )
+    }
+
+    // Create user profile
+    const { error: profileError } = await supabase.from('profiles').insert({
+      id: authData.user!.id,
+      email,
+      nickname,
+      risk_profile: 'MODERATE',
+    })
+
+    if (profileError) {
+      return NextResponse.json(
+        { error: profileError.message },
+        { status: 500 }
+      )
+    }
 
     // Generate tokens
     const accessToken = await createToken({
-      sub: user.id,
+      sub: authData.user!.id,
       email,
       role: 'user',
     })
 
     const refreshToken = await createRefreshToken({
-      sub: user.id,
+      sub: authData.user!.id,
       email,
       role: 'user',
     })
@@ -51,12 +81,12 @@ export async function POST(request: NextRequest) {
       refreshToken,
       expiresAt: Date.now() + 24 * 60 * 60 * 1000,
       user: {
-        id: user.id,
+        id: authData.user!.id,
         email,
         nickname,
         role: 'user',
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       },
     })
   } catch (error: any) {

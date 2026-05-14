@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/jwt'
-import { localStore } from '@/lib/localStore'
+import { supabase } from '@/lib/supabase'
 
 async function getUser(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
@@ -15,18 +15,23 @@ async function getUser(request: NextRequest) {
   }
 }
 
-// In-memory assets storage (per user)
-const assetsDB: Map<string, any[]> = new Map()
-let assetIdCounter = 1
-
 export async function GET(request: NextRequest) {
   const user = await getUser(request)
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const userAssets = assetsDB.get(user.sub) || []
-  return NextResponse.json(userAssets)
+  const { data: assets, error } = await supabase
+    .from('assets')
+    .select('*')
+    .eq('user_id', user.sub)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  return NextResponse.json(assets || [])
 }
 
 export async function POST(request: NextRequest) {
@@ -38,29 +43,28 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
 
-    const newAsset = {
-      id: `asset_${assetIdCounter++}`,
-      user_id: user.sub,
-      name: body.name,
-      category: body.category,
-      quantity: body.quantity || 0,
-      cost_price: body.cost_price || 0,
-      current_price: body.current_price || 0,
-      costPrice: body.cost_price || 0,
-      currentPrice: body.current_price || 0,
-      currency: body.currency || 'CNY',
-      memo: body.memo || '',
-      is_active: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+    const { data: asset, error } = await supabase
+      .from('assets')
+      .insert({
+        user_id: user.sub,
+        name: body.name,
+        category: body.category,
+        quantity: body.quantity || 0,
+        cost_price: body.cost_price || 0,
+        current_price: body.current_price || 0,
+        currency: body.currency || 'CNY',
+        memo: body.memo || '',
+        is_active: true,
+      })
+      .select()
+      .single()
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    const userAssets = assetsDB.get(user.sub) || []
-    userAssets.push(newAsset)
-    assetsDB.set(user.sub, userAssets)
-
-    return NextResponse.json(newAsset, { status: 201 })
-  } catch (error) {
-    return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
+    return NextResponse.json(asset, { status: 201 })
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message || 'Invalid request' }, { status: 400 })
   }
 }

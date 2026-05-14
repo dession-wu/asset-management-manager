@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { createToken, createRefreshToken } from '@/lib/jwt'
-import { localStore } from '@/lib/localStore'
+import { supabase } from '@/lib/supabase'
 import { loginSchema } from '@/lib/validation'
 
 export async function POST(request: NextRequest) {
@@ -18,41 +18,37 @@ export async function POST(request: NextRequest) {
 
     const { email, password } = result.data
 
-    // Find user in local store
-    const user = await localStore.findUserByEmail(email)
-    if (!user) {
+    // Sign in with Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (authError || !authData.user) {
       return NextResponse.json(
         { error: '邮箱或密码错误' },
         { status: 401 }
       )
     }
-
-    // Verify password
-    const isValidPassword = await bcrypt.compare(password, user.passwordHash)
-    if (!isValidPassword) {
-      return NextResponse.json(
-        { error: '邮箱或密码错误' },
-        { status: 401 }
-      )
-    }
-
-    // Update last login
-    await localStore.updateLastLogin(user.id)
 
     // Get user profile
-    const profile = await localStore.getProfileById(user.id)
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', authData.user.id)
+      .single()
 
     // Generate tokens
     const accessToken = await createToken({
-      sub: user.id,
+      sub: authData.user.id,
       email,
-      role: user.role,
+      role: 'user',
     })
 
     const refreshToken = await createRefreshToken({
-      sub: user.id,
+      sub: authData.user.id,
       email,
-      role: user.role,
+      role: 'user',
     })
 
     return NextResponse.json({
@@ -60,13 +56,13 @@ export async function POST(request: NextRequest) {
       refreshToken,
       expiresAt: Date.now() + 24 * 60 * 60 * 1000,
       user: {
-        id: user.id,
+        id: authData.user.id,
         email,
-        nickname: profile?.nickname || user.nickname || email.split('@')[0],
+        nickname: profile?.nickname || email.split('@')[0],
         avatar: profile?.avatar_url,
-        role: user.role,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
+        role: 'user',
+        createdAt: profile?.created_at || new Date().toISOString(),
+        updatedAt: profile?.updated_at || new Date().toISOString(),
       },
     })
   } catch (error) {
