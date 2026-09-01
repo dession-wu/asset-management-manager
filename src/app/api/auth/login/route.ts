@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { createToken, createRefreshToken } from '@/lib/jwt'
-import { supabase } from '@/lib/supabase'
+import { query } from '@/lib/db'
 import { loginSchema } from '@/lib/validation'
 
 export async function POST(request: NextRequest) {
@@ -11,42 +11,60 @@ export async function POST(request: NextRequest) {
     const result = loginSchema.safeParse(body)
     if (!result.success) {
       return NextResponse.json(
-        { error: result.error.errors[0].message },
+        { error: result.error.issues[0].message },
         { status: 400 }
       )
     }
 
     const { email, password } = result.data
 
-    // Sign in with Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    // 查询用户（含密码哈希）
+    const users = await query<{
+      id: string
+      email: string
+      password_hash: string
+      nickname: string | null
+      avatar_url: string | null
+      created_at: Date
+      updated_at: Date
+    }>(
+      'SELECT id, email, password_hash, nickname, avatar_url, created_at, updated_at FROM users WHERE email = $1',
+      [email]
+    )
 
-    if (authError || !authData.user) {
+    // 用户不存在与密码错误统一返回，避免账号枚举
+    if (users.length === 0) {
       return NextResponse.json(
         { error: '邮箱或密码错误' },
         { status: 401 }
       )
     }
 
-    // Get user profile
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', authData.user.id)
-      .single()
+    const user = users[0]
 
-    // Generate tokens
+    const passwordValid = await bcrypt.compare(password, user.password_hash)
+    if (!passwordValid) {
+      return NextResponse.json(
+        { error: '邮箱或密码错误' },
+        { status: 401 }
+      )
+    }
+
+    // 更新最后登录时间
+    await query(
+      'UPDATE users SET last_login_at = NOW(), updated_at = NOW() WHERE id = $1',
+      [user.id]
+    )
+
+    // 生成令牌
     const accessToken = await createToken({
-      sub: authData.user.id,
+      sub: user.id,
       email,
       role: 'user',
     })
 
     const refreshToken = await createRefreshToken({
-      sub: authData.user.id,
+      sub: user.id,
       email,
       role: 'user',
     })
@@ -56,13 +74,14 @@ export async function POST(request: NextRequest) {
       refreshToken,
       expiresAt: Date.now() + 24 * 60 * 60 * 1000,
       user: {
-        id: authData.user.id,
+        id: user.id,
         email,
-        nickname: profile?.nickname || email.split('@')[0],
-        avatar: profile?.avatar_url,
+        nickname: user.nickname || email.split('@')[0],
+        avatar: user.avatar_url,
         role: 'user',
-        createdAt: profile?.created_at || new Date().toISOString(),
-        updatedAt: profile?.updated_at || new Date().toISOString(),
+        createdAt: user.created_at,
+        updatedAt: user.updated_at,
+        lastLoginAt: new Date().toISOString(),
       },
     })
   } catch (error) {

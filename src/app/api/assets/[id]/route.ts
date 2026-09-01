@@ -1,19 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyToken } from '@/lib/jwt'
-import { supabase } from '@/lib/supabase'
+import { getUser, isUuid } from '@/lib/apiAuth'
+import { query } from '@/lib/db'
+import { assetUpdateApiSchema, mapAssetRow } from '@/lib/validation'
 
-async function getUser(request: NextRequest) {
-  const authHeader = request.headers.get('authorization')
-  if (!authHeader?.startsWith('Bearer ')) return null
-
-  try {
-    const token = authHeader.substring(7)
-    const claims = await verifyToken(token)
-    return claims
-  } catch {
-    return null
-  }
-}
+const SELECT_COLUMNS = `id, account_id, category, name, quantity, cost_price, current_price,
+                        currency, memo, is_active, created_at, updated_at`
 
 export async function GET(
   request: NextRequest,
@@ -25,19 +16,25 @@ export async function GET(
   }
 
   const { id } = await params
-
-  const { data, error } = await supabase
-    .from('assets')
-    .select('*')
-    .eq('id', id)
-    .eq('user_id', user.sub)
-    .single()
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  if (!isUuid(id)) {
+    return NextResponse.json({ error: '资产 ID 格式无效' }, { status: 400 })
   }
 
-  return NextResponse.json(data)
+  try {
+    const rows = await query(
+      `SELECT ${SELECT_COLUMNS} FROM assets WHERE id = $1 AND user_id = $2`,
+      [id, user.sub]
+    )
+
+    if (rows.length === 0) {
+      return NextResponse.json({ error: '资产不存在' }, { status: 404 })
+    }
+
+    return NextResponse.json(mapAssetRow(rows[0]))
+  } catch (error) {
+    console.error('Get asset error:', error)
+    return NextResponse.json({ error: '获取资产失败' }, { status: 500 })
+  }
 }
 
 export async function PATCH(
@@ -50,21 +47,52 @@ export async function PATCH(
   }
 
   const { id } = await params
-  const body = await request.json()
-
-  const { data, error } = await supabase
-    .from('assets')
-    .update(body)
-    .eq('id', id)
-    .eq('user_id', user.sub)
-    .select()
-    .single()
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  if (!isUuid(id)) {
+    return NextResponse.json({ error: '资产 ID 格式无效' }, { status: 400 })
   }
 
-  return NextResponse.json(data)
+  try {
+    const body = await request.json()
+
+    const parsed = assetUpdateApiSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || '请求参数无效' },
+        { status: 400 }
+      )
+    }
+
+    /* 白名单字段：user_id / account_id / created_at 不可透传修改 */
+    const allowedFields = ['name', 'category', 'quantity', 'cost_price', 'current_price', 'currency', 'memo'] as const
+    const updates = allowedFields.filter((field) => parsed.data[field] !== undefined)
+
+    if (updates.length === 0) {
+      return NextResponse.json({ error: '没有可更新的字段' }, { status: 400 })
+    }
+
+    const setClauses = updates.map((field, index) => `${field} = $${index + 1}`)
+    const values = updates.map((field) => parsed.data[field])
+    setClauses.push(`updated_at = NOW()`)
+
+    const rows = await query(
+      `UPDATE assets SET ${setClauses.join(', ')}
+        WHERE id = $${updates.length + 1} AND user_id = $${updates.length + 2}
+        RETURNING ${SELECT_COLUMNS}`,
+      [...values, id, user.sub]
+    )
+
+    if (rows.length === 0) {
+      return NextResponse.json({ error: '资产不存在' }, { status: 404 })
+    }
+
+    return NextResponse.json(mapAssetRow(rows[0]))
+  } catch (error: any) {
+    console.error('Update asset error:', error)
+    return NextResponse.json(
+      { error: error.message || '更新资产失败' },
+      { status: 500 }
+    )
+  }
 }
 
 export async function DELETE(
@@ -77,16 +105,26 @@ export async function DELETE(
   }
 
   const { id } = await params
-
-  const { error } = await supabase
-    .from('assets')
-    .update({ is_active: false })
-    .eq('id', id)
-    .eq('user_id', user.sub)
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  if (!isUuid(id)) {
+    return NextResponse.json({ error: '资产 ID 格式无效' }, { status: 400 })
   }
 
-  return NextResponse.json({ success: true })
+  try {
+    /* 软删除：置 is_active = false，保留数据 */
+    const rows = await query(
+      `UPDATE assets SET is_active = false, updated_at = NOW()
+        WHERE id = $1 AND user_id = $2
+        RETURNING id`,
+      [id, user.sub]
+    )
+
+    if (rows.length === 0) {
+      return NextResponse.json({ error: '资产不存在' }, { status: 404 })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Delete asset error:', error)
+    return NextResponse.json({ error: '删除资产失败' }, { status: 500 })
+  }
 }

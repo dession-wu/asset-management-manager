@@ -24,8 +24,10 @@ interface AssetState {
   getTotalAssets: () => number
   getNetWorth: () => number
   getAssetsByCategory: () => Record<string, number>
+  getTotalCost: () => number
+  getUnrealizedReturn: () => number
+  getReturnRate: () => number
 }
-
 const defaultSettings: UserSettings = {
   nickname: '用户',
   email: '',
@@ -89,6 +91,29 @@ export const useAssetStore = create<AssetState>()(
           result[asset.category] = (result[asset.category] || 0) + value
         })
         return result
+      },
+
+      /* 持仓总成本：Σ costPrice * quantity */
+      getTotalCost: () => {
+        return get().assets.reduce(
+          (sum, asset) => sum + asset.costPrice * asset.quantity,
+          0
+        )
+      },
+
+      /* 持仓浮盈（未实现收益）：Σ (currentPrice - costPrice) * quantity */
+      getUnrealizedReturn: () => {
+        return get().assets.reduce(
+          (sum, asset) => sum + (asset.currentPrice - asset.costPrice) * asset.quantity,
+          0
+        )
+      },
+
+      /* 收益率：浮盈 / 总成本，无成本时返回 0 */
+      getReturnRate: () => {
+        const totalCost = get().getTotalCost()
+        if (totalCost <= 0) return 0
+        return get().getUnrealizedReturn() / totalCost
       },
     }),
     {

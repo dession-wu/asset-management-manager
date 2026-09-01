@@ -218,5 +218,3 @@ export interface JwtClaims {
   iat: number;
   exp: number;
 }
-
-export type { Database } from './database';

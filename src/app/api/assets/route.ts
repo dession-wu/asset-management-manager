@@ -1,19 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyToken } from '@/lib/jwt'
-import { supabase } from '@/lib/supabase'
-
-async function getUser(request: NextRequest) {
-  const authHeader = request.headers.get('authorization')
-  if (!authHeader?.startsWith('Bearer ')) return null
-
-  try {
-    const token = authHeader.substring(7)
-    const claims = await verifyToken(token)
-    return claims
-  } catch {
-    return null
-  }
-}
+import { getUser } from '@/lib/apiAuth'
+import { query } from '@/lib/db'
+import { assetApiSchema, mapAssetRow } from '@/lib/validation'
 
 export async function GET(request: NextRequest) {
   const user = await getUser(request)
@@ -21,17 +9,21 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { data: assets, error } = await supabase
-    .from('assets')
-    .select('*')
-    .eq('user_id', user.sub)
-    .order('created_at', { ascending: false })
+  try {
+    const rows = await query(
+      `SELECT id, account_id, category, name, quantity, cost_price, current_price,
+              currency, memo, is_active, created_at, updated_at
+         FROM assets
+        WHERE user_id = $1
+        ORDER BY created_at DESC`,
+      [user.sub]
+    )
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json(rows.map(mapAssetRow))
+  } catch (error) {
+    console.error('List assets error:', error)
+    return NextResponse.json({ error: '获取资产列表失败' }, { status: 500 })
   }
-
-  return NextResponse.json(assets || [])
 }
 
 export async function POST(request: NextRequest) {
@@ -43,28 +35,30 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
 
-    const { data: asset, error } = await supabase
-      .from('assets')
-      .insert({
-        user_id: user.sub,
-        name: body.name,
-        category: body.category,
-        quantity: body.quantity || 0,
-        cost_price: body.cost_price || 0,
-        current_price: body.current_price || 0,
-        currency: body.currency || 'CNY',
-        memo: body.memo || '',
-        is_active: true,
-      })
-      .select()
-      .single()
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    const parsed = assetApiSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || '请求参数无效' },
+        { status: 400 }
+      )
     }
 
-    return NextResponse.json(asset, { status: 201 })
+    const { name, category, quantity, cost_price, current_price, currency, memo } = parsed.data
+
+    const rows = await query(
+      `INSERT INTO assets (user_id, name, category, quantity, cost_price, current_price, currency, memo, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
+       RETURNING id, account_id, category, name, quantity, cost_price, current_price,
+                 currency, memo, is_active, created_at, updated_at`,
+      [user.sub, name, category, quantity, cost_price, current_price, currency, memo]
+    )
+
+    return NextResponse.json(mapAssetRow(rows[0]), { status: 201 })
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Invalid request' }, { status: 400 })
+    console.error('Create asset error:', error)
+    return NextResponse.json(
+      { error: error.message || '创建资产失败' },
+      { status: 500 }
+    )
   }
 }
