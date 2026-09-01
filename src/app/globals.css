@@ -8,8 +8,11 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono",
+    monospace;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -22,5 +25,26 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+}
+
+/* ===== 落地页：矩阵网格缓慢滚动动画 ===== */
+@keyframes grid-scroll {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(48px);
+  }
+}
+
+.animate-grid {
+  animation: grid-scroll 2.4s linear infinite;
+}
+
+/* 用户开启"减弱动态效果"时，停用装饰性动画 */
+@media (prefers-reduced-motion: reduce) {
+  .animate-grid {
+    animation: none;
+  }
 }

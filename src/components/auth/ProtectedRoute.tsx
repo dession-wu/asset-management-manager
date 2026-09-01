@@ -23,7 +23,7 @@ export function ProtectedRoute({ children, requireAuth = false, guestOnly = fals
     }
 
     if (guestOnly && isAuthenticated) {
-      router.push('/')
+      router.push('/dashboard')
     }
   }, [isAuthenticated, isLoading, requireAuth, guestOnly, router, pathname])
 

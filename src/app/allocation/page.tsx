@@ -15,7 +15,7 @@ import { UserMenu } from '@/components/auth/UserMenu'
 import { formatCurrency, formatPercent } from '@/lib/utils'
 
 const navItems = [
-  { path: '/', label: '仪表盘', icon: LayoutDashboard },
+  { path: '/dashboard', label: '仪表盘', icon: LayoutDashboard },
   { path: '/assets', label: '资产管理', icon: Wallet },
   { path: '/allocation', label: '配置分析', icon: PieChart },
   { path: '/reports', label: '报表中心', icon: FileText },
