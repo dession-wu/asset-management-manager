@@ -2,346 +2,52 @@
 
 import { useEffect, useRef } from 'react'
 import Link from 'next/link'
-import {
-  Wallet,
-  ArrowRight,
-  TrendingUp,
-  PieChart,
-  BarChart3,
-  ShieldCheck,
-  Database,
-  LineChart,
-  ChevronRight,
-} from 'lucide-react'
+import { ArrowRight, BarChart3, Check, Database, FileText, PieChart, ShieldCheck, TrendingUp, Wallet } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 
-/**
- * 数字雨背景（轻量 Canvas 实现）
- * - 绘制缓慢下落的 0/1/¥/$ 数字流，营造金融科技氛围
- * - 监听 prefers-reduced-motion：用户开启"减弱动态效果"时渲染静态渐隐层
- * - 页面不可见时（document.hidden）自动暂停，节省性能
- */
-function DigitalRain() {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+const ASSET_CSS = `
+  :root { --ledger-ink:#172b3a; --ledger-muted:#687b82; --ledger-paper:#f4f3ee; --ledger-white:#fffefa; --ledger-line:rgba(23,43,58,.15); --ledger-teal:#176d68; --ledger-lime:#c3dd45; --ledger-sand:#e7ded0; }
+  .asset-page { min-height:100vh; overflow:hidden; color:var(--ledger-ink); background:var(--ledger-paper); font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+  .asset-page:before { content:""; position:fixed; inset:0; pointer-events:none; opacity:.5; background-image:linear-gradient(rgba(23,43,58,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(23,43,58,.045) 1px,transparent 1px); background-size:40px 40px; mask-image:linear-gradient(to bottom,black 0%,transparent 78%); }
+  .asset-header,.asset-section,.asset-footer { width:min(1180px,calc(100% - 64px)); margin:0 auto; position:relative; z-index:1; }.asset-header { min-height:96px; display:flex; align-items:center; justify-content:space-between; gap:26px; border-bottom:1px solid var(--ledger-line); }.asset-brand { display:flex; align-items:center; gap:11px; color:var(--ledger-ink); text-decoration:none; }.asset-brand-mark { display:grid; width:35px; height:35px; place-items:center; border:1px solid var(--ledger-ink); border-radius:50%; color:var(--ledger-teal); }.asset-brand strong,.asset-brand small { display:block; }.asset-brand strong { font-size:12px; letter-spacing:.14em; }.asset-brand small { margin-top:3px; color:var(--ledger-muted); font:8px ui-monospace,monospace; letter-spacing:.12em; }.asset-nav { display:flex; gap:35px; margin-left:auto; }.asset-nav a,.asset-login { color:var(--ledger-muted); font-size:11px; text-decoration:none; }.asset-nav a:hover,.asset-login:hover { color:var(--ledger-teal); }.asset-actions { display:flex; align-items:center; gap:19px; }.asset-register { display:inline-flex; align-items:center; gap:8px; color:var(--ledger-ink); font-size:12px; font-weight:700; text-decoration:none; }.asset-register svg { transition:transform .2s ease; }.asset-register:hover svg { transform:translateX(4px); }
+  .asset-hero { position:relative; z-index:1; border-bottom:1px solid var(--ledger-line); }.asset-hero-inner { display:grid; grid-template-columns:.84fr 1.16fr; align-items:center; gap:8%; min-height:680px; padding:88px 0 105px; }.asset-label,.asset-card-label,.asset-panel-label { color:var(--ledger-teal); font:10px ui-monospace,monospace; letter-spacing:.14em; }.asset-label { display:flex; align-items:center; gap:8px; }.asset-label i { display:block; width:7px; height:7px; border-radius:50%; background:var(--ledger-lime); }.asset-hero h1,.asset-section h2,.asset-cta h2 { margin:22px 0 0; font-family:Georgia,"Songti SC","STSong",serif; font-weight:400; letter-spacing:-.055em; line-height:1.02; }.asset-hero h1 { max-width:550px; font-size:clamp(54px,6.8vw,90px); }.asset-hero h1 em,.asset-section h2 em,.asset-cta h2 em { color:var(--ledger-teal); font-style:normal; }.asset-hero-copy>p:not(.asset-label) { max-width:420px; margin-top:30px; color:var(--ledger-muted); font-size:14px; line-height:1.95; }.asset-hero-actions { display:flex; align-items:center; gap:23px; margin-top:35px; }.asset-primary { display:inline-flex; align-items:center; gap:17px; min-height:51px; padding:0 21px 0 24px; background:var(--ledger-teal); color:#fffefa; font-size:12px; font-weight:700; text-decoration:none; transition:background .2s ease,transform .2s ease; }.asset-primary:hover { background:#0e504c; transform:translateY(-2px); }.asset-hero-secondary { color:var(--ledger-ink); font-size:11px; text-decoration:none; }.asset-hero-secondary:hover { color:var(--ledger-teal); }.asset-note { display:flex; align-items:center; gap:7px; margin-top:26px; color:var(--ledger-muted); font:9px ui-monospace,monospace; }.asset-note svg { color:var(--ledger-teal); }
+  .asset-ledger { position:relative; padding:18px; border:1px solid var(--ledger-line); background:var(--ledger-white); box-shadow:17px 17px 0 var(--ledger-sand); transform:rotate(-1deg); }.asset-ledger-top,.asset-ledger-foot { display:flex; justify-content:space-between; color:var(--ledger-muted); font:9px ui-monospace,monospace; }.asset-ledger-top b { color:var(--ledger-teal); font-weight:400; }.asset-ledger-body { margin-top:16px; border:1px solid var(--ledger-line); }.asset-ledger-summary { display:grid; grid-template-columns:1.2fr .8fr; gap:1px; background:var(--ledger-line); }.asset-balance,.asset-return { padding:25px; background:var(--ledger-paper); }.asset-card-label { color:var(--ledger-muted); }.asset-balance h3 { margin-top:17px; font:400 36px ui-monospace,monospace; letter-spacing:-.07em; }.asset-balance h3 span { color:var(--ledger-muted); font-size:12px; letter-spacing:0; }.asset-change { display:flex; align-items:center; gap:7px; margin-top:10px; color:var(--ledger-teal); font:10px ui-monospace,monospace; }.asset-return h3 { margin-top:18px; color:var(--ledger-teal); font:400 29px ui-monospace,monospace; }.asset-return p:last-child { margin-top:7px; color:var(--ledger-muted); font-size:10px; }.asset-chart { height:100px; margin:22px 25px 15px; border-bottom:1px solid var(--ledger-line); background:repeating-linear-gradient(to bottom,transparent 0,transparent 24px,rgba(23,43,58,.07) 25px); }.asset-chart svg { width:100%; height:100%; }.asset-chart path { fill:none; stroke:var(--ledger-teal); stroke-width:1.6; }.asset-chart .asset-chart-fill { fill:rgba(23,109,104,.08); stroke:none; }.asset-ledger-foot { padding:14px 2px 0; font-size:8px; }.asset-ledger-foot span:last-child { color:var(--ledger-teal); }
+  .asset-section { padding:105px 0 125px; }.asset-section-border { border-bottom:1px solid var(--ledger-line); }.asset-section-top { display:flex; align-items:end; justify-content:space-between; gap:30px; }.asset-section h2 { font-size:clamp(42px,5vw,70px); }.asset-section-desc { max-width:290px; margin-bottom:4px; color:var(--ledger-muted); font-size:13px; line-height:1.85; }.asset-feature-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1px; margin-top:61px; border:1px solid var(--ledger-line); background:var(--ledger-line); }.asset-feature { position:relative; min-height:235px; padding:22px; background:rgba(255,254,250,.56); transition:background .25s ease,color .25s ease; }.asset-feature:hover { background:var(--ledger-teal); color:#fffefa; }.asset-feature-top { display:flex; justify-content:space-between; color:var(--ledger-teal); }.asset-feature:hover .asset-feature-top { color:var(--ledger-lime); }.asset-feature-top span { font:10px ui-monospace,monospace; }.asset-feature h3 { margin-top:52px; font-size:17px; font-weight:600; }.asset-feature p { max-width:240px; margin-top:11px; color:var(--ledger-muted); font-size:11px; line-height:1.8; }.asset-feature:hover p { color:rgba(255,254,250,.7); }.asset-feature-arrow { position:absolute; right:21px; bottom:21px; color:var(--ledger-teal); }.asset-feature:hover .asset-feature-arrow { color:var(--ledger-lime); }
+  .asset-cta { border-top:1px solid var(--ledger-line); background:var(--ledger-ink); color:var(--ledger-paper); }.asset-cta-inner { display:flex; align-items:end; justify-content:space-between; gap:30px; padding-top:80px; padding-bottom:87px; }.asset-cta .asset-label { color:var(--ledger-lime); }.asset-cta h2 { font-size:clamp(42px,5vw,70px); }.asset-cta h2 em { color:var(--ledger-lime); }.asset-cta-copy { max-width:255px; }.asset-cta-copy p { color:#aab9b6; font-size:13px; line-height:1.8; }.asset-cta .asset-primary { margin-top:22px; background:var(--ledger-lime); color:var(--ledger-ink); }.asset-cta .asset-primary:hover { background:#dcf56d; }.asset-footer { display:flex; justify-content:space-between; gap:20px; padding-top:21px; padding-bottom:26px; color:var(--ledger-muted); font:9px ui-monospace,monospace; }.asset-footer span:last-child { color:var(--ledger-teal); }
+  @keyframes ledger-rise { from { opacity:0; transform:translateY(15px); } to { opacity:1; transform:translateY(0); } }.ledger-rise { animation:ledger-rise .7s cubic-bezier(.22,1,.36,1) both }.ledger-delay { animation-delay:.12s }
+  @media(max-width:900px){.asset-nav{display:none}.asset-hero-inner{grid-template-columns:1fr;gap:55px}.asset-ledger{max-width:700px;width:100%;margin-left:auto}.asset-section-top{display:block}.asset-section-desc{margin-top:23px}.asset-cta-inner{display:block}.asset-cta-copy{margin-top:35px}}
+  @media(max-width:600px){.asset-header,.asset-section,.asset-footer{width:calc(100% - 34px)}.asset-header{min-height:80px}.asset-brand strong{font-size:10px}.asset-brand small{font-size:7px}.asset-login{display:none}.asset-register{font-size:11px}.asset-hero-inner{min-height:0;padding:64px 0 85px}.asset-hero h1{font-size:clamp(49px,14vw,75px)}.asset-hero-copy>p:not(.asset-label){font-size:14px}.asset-hero-actions{align-items:flex-start;flex-direction:column;gap:20px}.asset-ledger{padding:12px;box-shadow:9px 9px 0 var(--ledger-sand);transform:none}.asset-ledger-summary{grid-template-columns:1fr}.asset-balance,.asset-return{padding:18px}.asset-balance h3{font-size:29px}.asset-chart{height:73px;margin:18px}.asset-section{padding:77px 0 89px}.asset-section h2,.asset-cta h2{font-size:39px}.asset-feature-grid{grid-template-columns:1fr;margin-top:40px}.asset-feature{min-height:206px}.asset-feature h3{margin-top:44px}.asset-cta-inner{padding-top:62px;padding-bottom:69px}.asset-footer{flex-wrap:wrap}.asset-footer span:nth-child(2){width:100%;order:3}}
+  @media(prefers-reduced-motion:reduce){.ledger-rise,.asset-primary,.asset-register svg{animation:none;transition:none}}
+`
 
+function AssetLedgerChart() {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-
-    /* 列宽与数字字符集 */
-    const fontSize = 16
-    const chars = '0123456789¥$%'.split('')
-    let columns = 0
-    let drops: number[] = []
-    let rafId = 0
-
-    const resize = () => {
-      canvas.width = canvas.offsetWidth
-      canvas.height = canvas.offsetHeight
-      columns = Math.floor(canvas.width / fontSize)
-      drops = Array.from({ length: columns }, () => Math.random() * -50)
-    }
-
-    const draw = () => {
-      /* 半透明黑色覆盖形成拖尾 */
-      ctx.fillStyle = 'rgba(11, 17, 32, 0.14)'
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
-      ctx.font = `${fontSize}px monospace`
-
-      for (let i = 0; i < columns; i++) {
-        const text = chars[Math.floor(Math.random() * chars.length)]
-        const x = i * fontSize
-        const y = drops[i] * fontSize
-        /* 少量高亮列使用金色，其余使用低透明蓝 */
-        ctx.fillStyle = i % 13 === 0 ? 'rgba(245, 158, 11, 0.30)' : 'rgba(59, 130, 246, 0.16)'
-        ctx.fillText(text, x, y)
-        if (y > canvas.height && Math.random() > 0.975) drops[i] = 0
-        drops[i] += 0.5
-      }
-    }
-
-    const loop = () => {
-      if (!document.hidden) draw()
-      rafId = window.requestAnimationFrame(loop)
-    }
-
-    resize()
-    window.addEventListener('resize', resize)
-
-    if (reduceMotion) {
-      /* 降级：仅绘制一帧静态数字，无连续动画 */
-      draw()
-    } else {
-      rafId = window.requestAnimationFrame(loop)
-    }
-
-    return () => {
-      window.cancelAnimationFrame(rafId)
-      window.removeEventListener('resize', resize)
-    }
+    const ctx = canvas?.getContext('2d')
+    if (!canvas || !ctx) return
+    const resize = () => { canvas.width = canvas.offsetWidth * 2; canvas.height = canvas.offsetHeight * 2; ctx.scale(2,2); ctx.strokeStyle = 'rgba(23,109,104,.18)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0,canvas.offsetHeight*.72); ctx.lineTo(canvas.offsetWidth,canvas.offsetHeight*.72); ctx.stroke() }
+    resize(); window.addEventListener('resize', resize); return () => window.removeEventListener('resize', resize)
   }, [])
-
-  return (
-    <canvas
-      ref={canvasRef}
-      aria-hidden="true"
-      className="absolute inset-0 h-full w-full opacity-60"
-    />
-  )
+  return <canvas ref={canvasRef} aria-hidden="true" style={{ position:'absolute', inset:0, width:'100%', height:'100%', pointerEvents:'none', opacity:.35 }} />
 }
 
-/* 核心功能卡片数据 */
-const features = [
-  {
-    icon: Wallet,
-    title: '资产管理',
-    desc: '集中登记现金、股票、基金、房产等多类资产，成本、数量、现价一目了然。',
-    accent: 'text-emerald-400 bg-emerald-500/10',
-  },
-  {
-    icon: PieChart,
-    title: '分类统计',
-    desc: '按类别、账户维度自动归集，资产分布结构实时掌握，辅助再平衡决策。',
-    accent: 'text-blue-400 bg-blue-500/10',
-  },
-  {
-    icon: BarChart3,
-    title: '可视化报表',
-    desc: '总资产、净资产、持仓浮盈与收益率多卡片呈现，数据变化趋势直观清晰。',
-    accent: 'text-amber-400 bg-amber-500/10',
-  },
-  {
-    icon: TrendingUp,
-    title: '收益追踪',
-    desc: '基于持仓成本自动计算浮动盈亏与收益率，正负收益高亮提示。',
-    accent: 'text-emerald-400 bg-emerald-500/10',
-  },
-  {
-    icon: ShieldCheck,
-    title: '安全认证',
-    desc: 'JWT + Refresh Token 双令牌机制，无感刷新登录态，数据访问层层护航。',
-    accent: 'text-blue-400 bg-blue-500/10',
-  },
-  {
-    icon: Database,
-    title: '自有数据',
-    desc: '自建 PostgreSQL 数据库存储，资产数据完全归属自己，隐私不留第三方。',
-    accent: 'text-amber-400 bg-amber-500/10',
-  },
-]
-
-/* Hero 数据亮点条 */
-const stats = [
-  { value: '6+', label: '资产类别支持' },
-  { value: '100%', label: '数据自主掌控' },
-  { value: '24/7', label: '随时访问' },
-  { value: 'JWT', label: '安全认证' },
-]
+const FEATURES = [
+  [Wallet, '统一资产账本', '现金、股票、基金与房产集中记录，成本和现价始终有出处。'],
+  [PieChart, '配置结构', '按类别和账户拆解资产分布，帮助你理解组合，而不只是查看数字。'],
+  [BarChart3, '收益复盘', '基于持仓成本追踪浮动盈亏与收益率，保留长期变化的上下文。'],
+  [ShieldCheck, '访问边界', 'JWT 与 Refresh Token 保护登录状态，让私有数据只在你的权限内流转。'],
+  [Database, '数据自持', '使用自建 PostgreSQL 存储资产记录，减少对第三方平台的依赖。'],
+  [FileText, '报告沉淀', '将关键数据整理成可回看的报表，支持定期复盘和财务决策。'],
+] as const
 
 export default function LandingPage() {
   const { isAuthenticated, isLoading } = useAuth()
-
-  return (
-    <div className="relative min-h-screen overflow-hidden bg-[#0B1120] text-slate-200">
-      {/* ===== 背景层：数字雨 Canvas + 矩阵网格 + 光晕 ===== */}
-      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-        <DigitalRain />
-        {/* 矩阵网格：CSS 渐变绘制，随动画缓慢纵向滚动 */}
-        <div className="absolute inset-0 animate-grid bg-[linear-gradient(to_right,rgba(59,130,246,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(59,130,246,0.05)_1px,transparent_1px)] bg-[size:48px_48px]" />
-        {/* 顶部主色光晕 + 底部金色微光，增加空间层次 */}
-        <div className="absolute -top-40 left-1/2 h-96 w-[42rem] -translate-x-1/2 rounded-full bg-blue-600/15 blur-3xl" />
-        <div className="absolute bottom-0 right-0 h-72 w-72 rounded-full bg-amber-500/5 blur-3xl" />
-        {/* 上下渐隐遮罩，保证正文可读性 */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0B1120]/40 via-transparent to-[#0B1120]" />
-      </div>
-
-      {/* ===== 内容层 ===== */}
-      <div className="relative z-10">
-        {/* Header：logo + 登录入口 */}
-        <header className="border-b border-white/5 bg-[#0B1120]/70 backdrop-blur-md">
-          <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-            <div className="flex items-center space-x-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 shadow-lg shadow-blue-600/30">
-                <Wallet className="h-5 w-5 text-white" />
-              </div>
-              <div className="leading-tight">
-                <span className="block text-sm font-bold tracking-wider text-white">
-                  Asset Pilot
-                </span>
-                <span className="block font-mono text-[10px] tracking-widest text-slate-500">
-                  资产管理平台
-                </span>
-              </div>
-            </div>
-
-            {/* 登录入口：已登录 → 进入控制台；未登录 → 登录 / 注册 */}
-            <div className="flex items-center space-x-3">
-              {!isLoading && isAuthenticated ? (
-                <Link
-                  href="/dashboard"
-                  className="group flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500"
-                >
-                  进入控制台
-                  <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                </Link>
-              ) : (
-                <>
-                  <Link
-                    href="/login"
-                    className="rounded-lg px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:text-white"
-                  >
-                    登录
-                  </Link>
-                  <Link
-                    href="/register"
-                    className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500"
-                  >
-                    免费注册
-                  </Link>
-                </>
-              )}
-            </div>
-          </div>
-        </header>
-
-        {/* Hero：主标题 + 副标题 + 双 CTA + 数据亮点 */}
-        <section className="mx-auto max-w-6xl px-6 pb-24 pt-20 text-center md:pt-28">
-          {/* 徽章 */}
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
-            <span className="font-mono text-xs tracking-widest text-blue-300">
-              PERSONAL ASSET MANAGEMENT
-            </span>
-          </div>
-
-          <h1 className="mx-auto max-w-3xl text-4xl font-bold leading-tight tracking-tight text-white md:text-6xl">
-            让每一笔资产
-            <span className="bg-gradient-to-r from-blue-400 via-emerald-400 to-amber-400 bg-clip-text text-transparent">
-              {' '}清晰可见
-            </span>
-          </h1>
-
-          <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-slate-400 md:text-lg">
-            集中管理现金、股票、基金等多类资产，自动统计分类与收益，
-            可视化报表随时掌握净资产全景。数据自持，安全可靠。
-          </p>
-
-          {/* 双 CTA：已登录主按钮直达控制台 */}
-          <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <Link
-              href={isAuthenticated && !isLoading ? '/dashboard' : '/register'}
-              className="group flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-blue-600/30 transition-all hover:bg-blue-500 active:scale-[0.98] sm:w-auto"
-            >
-              {isAuthenticated && !isLoading ? '进入控制台' : '免费开始管理资产'}
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-            </Link>
-            <Link
-              href="/login"
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-8 py-3.5 text-sm font-semibold text-slate-200 backdrop-blur transition-all hover:border-white/20 hover:bg-white/10 active:scale-[0.98] sm:w-auto"
-            >
-              已有账户，直接登录
-            </Link>
-          </div>
-
-          {/* 数据亮点条：金色/绿色高光 */}
-          <dl className="mx-auto mt-20 grid max-w-4xl grid-cols-1 gap-px overflow-hidden rounded-2xl border border-white/5 bg-white/5 sm:grid-cols-2 lg:grid-cols-4">
-            {stats.map((s) => (
-              <div key={s.label} className="bg-[#0F172A]/80 px-6 py-6">
-                <dt className="font-mono text-2xl font-bold tracking-tight text-amber-400">
-                  {s.value}
-                </dt>
-                <dd className="mt-1 text-xs text-slate-500">{s.label}</dd>
-              </div>
-            ))}
-          </dl>
-        </section>
-
-        {/* 核心功能区：单列(移动端) → 双列(平板) → 三列(桌面) */}
-        <section className="border-t border-white/5 bg-[#0F172A]/40 py-24">
-          <div className="mx-auto max-w-6xl px-6">
-            <div className="mb-12 text-center">
-              <p className="font-mono text-xs uppercase tracking-[0.25em] text-emerald-400">
-                Core Features
-              </p>
-              <h2 className="mt-3 text-3xl font-bold tracking-tight text-white">
-                为个人资产量身打造
-              </h2>
-              <p className="mt-3 text-sm text-slate-500">
-                从记录到分析，覆盖资产管理完整链路
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {features.map((f) => {
-                const Icon = f.icon
-                return (
-                  <div
-                    key={f.title}
-                    className="group rounded-2xl border border-white/5 bg-[#0F172A] p-6 transition-all hover:-translate-y-1 hover:border-blue-500/30 hover:shadow-xl hover:shadow-blue-900/20"
-                  >
-                    <div
-                      className={`mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl ${f.accent}`}
-                    >
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <h3 className="text-base font-semibold text-white">{f.title}</h3>
-                    <p className="mt-2 text-sm leading-relaxed text-slate-500">{f.desc}</p>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </section>
-
-        {/* 底部 CTA */}
-        <section className="py-24">
-          <div className="mx-auto max-w-4xl px-6">
-            <div className="relative overflow-hidden rounded-3xl border border-blue-500/20 bg-gradient-to-br from-[#0F172A] to-[#0B1120] px-8 py-14 text-center md:px-16">
-              {/* 面板内部网格装饰 */}
-              <div
-                aria-hidden="true"
-                className="absolute inset-0 bg-[linear-gradient(to_right,rgba(59,130,246,0.06)_1px,transparent_1px),linear-gradient(to_bottom,rgba(59,130,246,0.06)_1px,transparent_1px)] bg-[size:32px_32px]"
-              />
-              <div className="relative">
-                <LineChart className="mx-auto mb-5 h-8 w-8 text-emerald-400" />
-                <h2 className="text-2xl font-bold tracking-tight text-white md:text-3xl">
-                  现在开始，掌握你的财务全景
-                </h2>
-                <p className="mx-auto mt-3 max-w-xl text-sm text-slate-400">
-                  注册即可创建专属资产管理空间，数据由自建数据库安全存储。
-                </p>
-                <Link
-                  href={isAuthenticated && !isLoading ? '/dashboard' : '/register'}
-                  className="group mt-8 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-blue-600/30 transition-all hover:bg-blue-500 active:scale-[0.98]"
-                >
-                  {isAuthenticated && !isLoading ? '进入控制台' : '立即免费注册'}
-                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                </Link>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Footer */}
-        <footer className="border-t border-white/5 bg-[#0B1120]/70 py-8">
-          <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 text-xs text-slate-600 md:flex-row">
-            <div className="flex items-center gap-2">
-              <Wallet className="h-3.5 w-3.5" />
-              <span className="font-mono tracking-widest">
-                © 2026 ASSET PILOT. ALL RIGHTS RESERVED.
-              </span>
-            </div>
-            <div className="flex items-center gap-4 font-mono tracking-widest">
-              <span className="text-emerald-400/70">SECURE_JWT_AUTH</span>
-              <span className="hidden md:inline">POWERED_BY_POSTGRESQL</span>
-            </div>
-          </div>
-        </footer>
-      </div>
-    </div>
-  )
+  const destination = isAuthenticated && !isLoading ? '/dashboard' : '/register'
+  const actionLabel = isAuthenticated && !isLoading ? '进入我的账本' : '建立我的账本'
+  return <div className="asset-page"><style>{ASSET_CSS}</style><header className="asset-header"><Link href="/" className="asset-brand" aria-label="Asset Pilot 首页"><span className="asset-brand-mark"><Wallet size={17} /></span><span><strong>ASSET PILOT</strong><small>PERSONAL LEDGER / 01</small></span></Link><nav className="asset-nav"><a href="#overview">资产总览</a><a href="#features">管理能力</a><a href="#security">数据边界</a></nav><div className="asset-actions"><Link href="/login" className="asset-login">登录</Link><Link href="/register" className="asset-register">注册 <ArrowRight size={14} /></Link></div></header><main>
+    <section className="asset-hero"><div className="asset-section asset-hero-inner"><div className="asset-hero-copy ledger-rise"><p className="asset-label"><i /> PERSONAL WEALTH LEDGER</p><h1>把资产理清，<br /><em>把生活看远。</em></h1><p>把分散在不同账户里的资产，整理成一份属于自己的长期账本。记录当前，也为下一次更重要的决定保留依据。</p><div className="asset-hero-actions"><Link href={destination} className="asset-primary">{actionLabel} <ArrowRight size={17} /></Link><a href="#overview" className="asset-hero-secondary">先看账本总览 ↓</a></div><p className="asset-note"><Check size={13} /> 私人记录 · 数据自持 · 面向长期</p></div><div className="asset-ledger ledger-rise ledger-delay" id="overview"><div className="asset-ledger-top"><span>PERSONAL LEDGER / OVERVIEW</span><b>● UPDATED TODAY</b></div><div className="asset-ledger-body"><div className="asset-ledger-summary"><div className="asset-balance"><p className="asset-card-label">净资产 NET WORTH</p><h3>¥ 1,284,680<span>.00</span></h3><p className="asset-change"><TrendingUp size={13} /> +8.42% 本年度</p></div><div className="asset-return"><p className="asset-card-label">本年度收益</p><h3>+ ¥ 86,420</h3><p>基于已记录持仓成本</p></div></div><div className="asset-chart"><AssetLedgerChart /><svg viewBox="0 0 500 100" preserveAspectRatio="none" aria-label="净资产趋势"><path className="asset-chart-fill" d="M0 82 L48 72 L92 75 L137 60 L185 64 L230 46 L276 52 L321 32 L367 39 L411 24 L458 29 L500 8 L500 100 L0 100Z" /><path d="M0 82 L48 72 L92 75 L137 60 L185 64 L230 46 L276 52 L321 32 L367 39 L411 24 L458 29 L500 8" /></svg></div></div><div className="asset-ledger-foot"><span>最后一次记录：刚刚</span><span>VIEW FULL LEDGER ↗</span></div></div></div></section>
+    <section className="asset-section asset-section-border"><div className="asset-section-top"><div><p className="asset-label">/ THE LONG VIEW</p><h2>不是追逐数字，<br /><em>是建立判断。</em></h2></div><p className="asset-section-desc">一个安静、清晰的资产记录空间。让数据从“被保存”走向“能帮助你做决定”。</p></div><div className="asset-feature-grid" id="features">{FEATURES.map(([Icon,title,desc],index)=><article className="asset-feature" key={title}><div className="asset-feature-top"><span>0{index+1}</span><Icon size={19} /></div><h3>{title}</h3><p>{desc}</p><ArrowRight className="asset-feature-arrow" size={17} /></article>)}</div></section>
+    <section className="asset-cta" id="security"><div className="asset-section asset-cta-inner"><div><p className="asset-label">/ KEEP YOUR OWN RECORD</p><h2>从一页账本，<br /><em>开始长期管理。</em></h2></div><div className="asset-cta-copy"><p>建立你的资产空间，让每一次记录都成为下一次判断的依据。</p><Link href={destination} className="asset-primary">{actionLabel} <ArrowRight size={17} /></Link></div></div></section>
+  </main><footer className="asset-footer"><span>ASSET PILOT</span><span>PRIVATE LEDGER / CLEARER DECISIONS</span><span>© 2026</span></footer></div>
 }
