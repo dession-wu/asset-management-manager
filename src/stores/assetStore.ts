@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Asset, Account, Transaction, UserSettings, RiskProfile } from '@/types'
+import type { Asset, Account, Transaction, UserSettings } from '@/types'
 
 interface AssetState {
   assets: Asset[]
@@ -9,6 +9,7 @@ interface AssetState {
   userSettings: UserSettings
   isLoading: boolean
   error: string | null
+  reset: () => void
 
   setAssets: (assets: Asset[]) => void
   setAccounts: (accounts: Account[]) => void
@@ -24,8 +25,10 @@ interface AssetState {
   getTotalAssets: () => number
   getNetWorth: () => number
   getAssetsByCategory: () => Record<string, number>
+  getTotalCost: () => number
+  getUnrealizedReturn: () => number
+  getReturnRate: () => number
 }
-
 const defaultSettings: UserSettings = {
   nickname: '用户',
   email: '',
@@ -54,6 +57,7 @@ export const useAssetStore = create<AssetState>()(
       userSettings: defaultSettings,
       isLoading: false,
       error: null,
+      reset: () => set({ assets: [], accounts: [], transactions: [], userSettings: defaultSettings, error: null, isLoading: false }),
 
       setAssets: (assets) => set({ assets }),
       setAccounts: (accounts) => set({ accounts }),
@@ -73,32 +77,54 @@ export const useAssetStore = create<AssetState>()(
         })),
 
       getTotalAssets: () => {
-        return get().assets.reduce((sum, asset) => {
+        return get().assets.filter(a => a.category !== 'DEBT' && a.currency === 'CNY').reduce((sum, asset) => {
           return sum + asset.currentPrice * asset.quantity
         }, 0)
       },
 
       getNetWorth: () => {
-        return get().getTotalAssets()
+        return get().getTotalAssets() - get().assets.filter(a => a.category === 'DEBT' && a.currency === 'CNY').reduce((sum, a) => sum + a.currentPrice * a.quantity, 0)
       },
 
       getAssetsByCategory: () => {
         const result: Record<string, number> = {}
         get().assets.forEach((asset) => {
+          if (asset.category === 'DEBT' || asset.currency !== 'CNY') return
           const value = asset.currentPrice * asset.quantity
           result[asset.category] = (result[asset.category] || 0) + value
         })
         return result
       },
+
+      /* 持仓总成本：Σ costPrice * quantity */
+      getTotalCost: () => {
+        return get().assets.filter(a => a.category !== 'DEBT' && a.currency === 'CNY').reduce(
+          (sum, asset) => sum + asset.costPrice * asset.quantity,
+          0
+        )
+      },
+
+      /* 持仓浮盈（未实现收益）：Σ (currentPrice - costPrice) * quantity */
+      getUnrealizedReturn: () => {
+        return get().assets.filter(a => a.category !== 'DEBT' && a.currency === 'CNY').reduce(
+          (sum, asset) => sum + (asset.currentPrice - asset.costPrice) * asset.quantity,
+          0
+        )
+      },
+
+      /* 收益率：浮盈 / 总成本，无成本时返回 0 */
+      getReturnRate: () => {
+        const totalCost = get().getTotalCost()
+        if (totalCost <= 0) return 0
+        return get().getUnrealizedReturn() / totalCost
+      },
     }),
     {
       name: 'asset-storage',
       partialize: (state) => ({
-        assets: state.assets,
-        accounts: state.accounts,
-        transactions: state.transactions,
         userSettings: state.userSettings,
       }),
+      merge: (persisted, current) => ({ ...current, userSettings: (persisted as { userSettings?: UserSettings })?.userSettings || defaultSettings }),
     }
   )
 )

@@ -12,7 +12,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      '@asset-manager/shared': path.resolve(__dirname, '../shared/index.ts'),
     },
   },
 })

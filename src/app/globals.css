@@ -8,8 +8,11 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono",
+    monospace;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -22,5 +25,66 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+}
+
+/* ===== 落地页：矩阵网格缓慢滚动动画 ===== */
+@keyframes grid-scroll {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(48px);
+  }
+}
+
+.animate-grid {
+  animation: grid-scroll 2.4s linear infinite;
+}
+
+/* 用户开启"减弱动态效果"时，停用装饰性动画 */
+@media (prefers-reduced-motion: reduce) {
+  .animate-grid {
+    animation: none;
+  }
+}
+
+/* 登录页：私人账本入口 */
+.asset-login-page { min-height: 100vh; position: relative; overflow: hidden; background: #f4f1e9; color: #162536; }
+.asset-login-grid { position: fixed; inset: 0; pointer-events: none; opacity: .5; background-image: linear-gradient(rgba(22,37,54,.07) 1px, transparent 1px), linear-gradient(90deg, rgba(22,37,54,.07) 1px, transparent 1px); background-size: 48px 48px; mask-image: linear-gradient(90deg, black, transparent 88%); }
+.asset-login-shell { position: relative; z-index: 1; width: min(1180px, calc(100% - 64px)); min-height: 100vh; margin: auto; display: grid; grid-template-rows: auto 1fr auto; }
+.asset-login-header, .asset-login-footer { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(22,37,54,.16); padding: 25px 0; }
+.asset-login-footer { border-top: 1px solid rgba(22,37,54,.16); border-bottom: 0; color: #667485; font: 9px ui-monospace, monospace; letter-spacing: .08em; }
+.asset-login-brand { display: flex; align-items: center; gap: 11px; color: #162536; text-decoration: none; }
+.asset-login-mark { display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid #162536; border-radius: 50%; color: #147d73; }
+.asset-login-brand strong, .asset-login-brand small { display: block; }.asset-login-brand strong { font-size: 12px; letter-spacing: .14em; }.asset-login-brand small, .asset-login-code { color: #667485; font: 8px ui-monospace, monospace; letter-spacing: .1em; }.asset-login-code { font-size: 9px; }
+.asset-login-main { display: grid; grid-template-columns: 1fr 430px; align-items: center; gap: 12%; padding: 70px 0; }
+.asset-login-kicker, .asset-login-card-top { color: #147d73; font: 10px ui-monospace, monospace; letter-spacing: .12em; }.asset-login-intro h1 { margin: 24px 0 0; max-width: 560px; font: 400 clamp(52px, 6.3vw, 84px)/1.02 Georgia, "Times New Roman", serif; letter-spacing: -.06em; }.asset-login-intro h1 em { color: #147d73; font-style: normal; }.asset-login-intro > p:not(.asset-login-kicker) { max-width: 430px; margin-top: 28px; color: #667485; font-size: 15px; line-height: 1.9; }
+.asset-login-ledger { max-width: 425px; margin-top: 51px; border-top: 1px solid rgba(22,37,54,.16); }.asset-login-ledger div { display: grid; grid-template-columns: 22px 1fr auto; align-items: center; gap: 9px; padding: 14px 0; border-bottom: 1px solid rgba(22,37,54,.16); color: #667485; font-size: 12px; }.asset-login-ledger svg { color: #147d73; }.asset-login-ledger b { color: #667485; font: 10px ui-monospace, monospace; font-weight: 400; }
+.asset-login-card { background: rgba(255,255,255,.88); border: 1px solid rgba(22,37,54,.18); padding: 30px; box-shadow: 17px 17px 0 rgba(20,125,115,.1); }.asset-login-card-top { display: flex; justify-content: space-between; padding-bottom: 15px; border-bottom: 1px solid rgba(22,37,54,.16); color: #667485; font-size: 9px; }.asset-login-card h2 { margin: 26px 0 7px; font-size: 26px; font-weight: 500; letter-spacing: -.04em; }.asset-login-caption { margin: 0; color: #667485; font-size: 12px; }.asset-login-error { margin-top: 22px; padding: 11px 12px; border-left: 3px solid #b64b42; background: #fbecea; color: #9c3b34; font-size: 12px; line-height: 1.5; }.asset-login-form { margin-top: 28px; }.asset-login-field + .asset-login-field { margin-top: 18px; }.asset-login-field label { display: block; margin-bottom: 8px; font-size: 12px; font-weight: 600; }.asset-login-field input[type=email], .asset-login-field input[type=password], .asset-login-field input[type=text] { box-sizing: border-box; width: 100%; height: 48px; padding: 0 13px; border: 1px solid rgba(22,37,54,.2); border-radius: 0; background: #fff; color: #162536; font: 13px inherit; }.asset-login-field input:focus-visible { outline: 2px solid #147d73; outline-offset: 2px; border-color: #147d73; }.asset-login-password { position: relative; }.asset-login-password input { padding-right: 45px !important; }.asset-login-eye { position: absolute; right: 5px; top: 4px; width: 40px; height: 40px; border: 0; background: transparent; color: #667485; cursor: pointer; }.asset-login-eye:hover { color: #162536; }.asset-login-eye:focus-visible, .asset-login-submit:focus-visible, .asset-login-register a:focus-visible, .asset-login-brand:focus-visible { outline: 2px solid #147d73; outline-offset: 3px; }.asset-login-remember { display: flex; align-items: center; gap: 8px; margin-top: 19px; color: #667485; font-size: 11px; }.asset-login-remember input { width: 15px; height: 15px; accent-color: #147d73; }.asset-login-submit { display: flex; align-items: center; justify-content: center; gap: 14px; width: 100%; height: 52px; margin-top: 22px; border: 0; background: #162536; color: #fff; font-size: 12px; font-weight: 700; cursor: pointer; }.asset-login-submit:hover { background: #147d73; }.asset-login-submit:disabled { cursor: wait; opacity: .65; }.asset-login-spinner { animation: asset-login-spin .8s linear infinite; }.asset-login-register { margin: 24px 0 0; color: #667485; font-size: 12px; text-align: center; }.asset-login-register a { display: inline-flex; align-items: center; gap: 4px; margin-left: 3px; color: #162536; font-weight: 700; text-decoration: underline; text-underline-offset: 4px; } @keyframes asset-login-spin { to { transform: rotate(360deg); } }
+@media (max-width: 900px) { .asset-login-main { grid-template-columns: 1fr; gap: 46px; }.asset-login-card { width: 100%; max-width: 520px; box-sizing: border-box; margin-left: auto; } }
+@media (max-width: 600px) { .asset-login-shell { width: calc(100% - 34px); }.asset-login-header { padding: 20px 0; }.asset-login-code { max-width: 100px; text-align: right; line-height: 1.5; }.asset-login-main { padding: 52px 0 64px; }.asset-login-intro h1 { font-size: clamp(48px, 15vw, 70px); }.asset-login-card { padding: 24px 20px; }.asset-login-footer { flex-wrap: wrap; gap: 10px; }.asset-login-footer span:last-child { width: 100%; } }
+@media (prefers-reduced-motion: reduce) { .asset-login-spinner { animation: none; } }
+
+.asset-login-hint { margin-top: 9px; color: #667485; font-size: 11px; line-height: 1.7; }
+.asset-login-form fieldset { min-width: 0; }
+.asset-workspace :where(button, a, input, select, textarea):focus-visible { outline: 2px solid #2563eb; outline-offset: 3px; }
+.asset-workspace button:not(:disabled) { cursor: pointer; }
+.asset-workspace table { min-width: 900px; }
+.asset-workspace th, .asset-workspace td { white-space: nowrap; }
+.asset-workspace td:first-child { min-width: 140px; }
+.asset-workspace td:first-child > span:first-child { white-space: normal; }
+.asset-workspace td { font-variant-numeric: tabular-nums; }
+.asset-dialog { border: 1px solid #e5e7eb; }
+.asset-dialog :where(input, select, textarea, button):focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+@media (max-width: 600px) {
+  .asset-login-main { padding-top: 32px; gap: 38px; }
+  .asset-login-card { order: -1; }
+}
+@media print {
+  .asset-sidebar, .asset-workspace-header, [data-sonner-toaster], .asset-workspace a.sr-only { display: none !important; }
+  .asset-workspace, .asset-workspace > div, .asset-workspace main { display: block; height: auto; overflow: visible; background: white; padding: 0; }
+  .asset-workspace .overflow-x-auto { overflow: visible; }
+  .asset-workspace table { min-width: 0; }
+  .asset-workspace tr { break-inside: avoid; }
 }

@@ -1,7 +1,8 @@
+import { randomUUID } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { createToken, createRefreshToken } from '@/lib/jwt'
-import { supabase } from '@/lib/supabase'
+import { query } from '@/lib/db'
 import { registerSchema } from '@/lib/validation'
 
 export async function POST(request: NextRequest) {
@@ -11,67 +12,55 @@ export async function POST(request: NextRequest) {
     const result = registerSchema.safeParse(body)
     if (!result.success) {
       return NextResponse.json(
-        { error: result.error.errors[0].message },
+        { error: result.error.issues[0].message },
         { status: 400 }
       )
     }
 
     const { email, password, nickname } = result.data
 
-    // Check if user already exists
-    const { data: existingUser } = await supabase
-      .from('profiles')
-      .select('email')
-      .eq('email', email)
-      .single()
-
-    if (existingUser) {
+    // 检查邮箱是否已注册
+    const existing = await query<{ id: string }>(
+      'SELECT id FROM users WHERE email = $1',
+      [email]
+    )
+    if (existing.length > 0) {
       return NextResponse.json(
         { error: '该邮箱已被注册' },
         { status: 409 }
       )
     }
 
-    // Hash password
+    // 密码哈希后入库（bcrypt，cost 12）
     const passwordHash = await bcrypt.hash(password, 12)
 
-    // Create user in Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-    })
+    const users = await query<{
+      id: string
+      email: string
+      nickname: string | null
+      avatar_url: string | null
+      created_at: Date
+      updated_at: Date
+    }>(
+      `INSERT INTO users (email, password_hash, nickname, risk_profile)
+       VALUES ($1, $2, $3, 'MODERATE')
+       RETURNING id, email, nickname, avatar_url, created_at, updated_at`,
+      [email, passwordHash, nickname]
+    )
+    const user = users[0]
 
-    if (authError) {
-      return NextResponse.json(
-        { error: authError.message },
-        { status: 400 }
-      )
-    }
-
-    // Create user profile
-    const { error: profileError } = await supabase.from('profiles').insert({
-      id: authData.user!.id,
-      email,
-      nickname,
-      risk_profile: 'MODERATE',
-    })
-
-    if (profileError) {
-      return NextResponse.json(
-        { error: profileError.message },
-        { status: 500 }
-      )
-    }
-
-    // Generate tokens
+    // 生成令牌
+    const sid = randomUUID()
     const accessToken = await createToken({
-      sub: authData.user!.id,
+      sid,
+      sub: user.id,
       email,
       role: 'user',
     })
 
     const refreshToken = await createRefreshToken({
-      sub: authData.user!.id,
+      sid,
+      sub: user.id,
       email,
       role: 'user',
     })
@@ -81,18 +70,25 @@ export async function POST(request: NextRequest) {
       refreshToken,
       expiresAt: Date.now() + 24 * 60 * 60 * 1000,
       user: {
-        id: authData.user!.id,
+        id: user.id,
         email,
         nickname,
         role: 'user',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: user.created_at,
+        updatedAt: user.updated_at,
       },
     })
   } catch (error: any) {
+    // 并发注册撞唯一约束时兜底返回 409
+    if (error?.code === '23505') {
+      return NextResponse.json(
+        { error: '该邮箱已被注册' },
+        { status: 409 }
+      )
+    }
     console.error('Register error:', error)
     return NextResponse.json(
-      { error: error.message || '注册失败，请稍后重试' },
+      { error: error?.message || '注册失败，请稍后重试' },
       { status: 500 }
     )
   }

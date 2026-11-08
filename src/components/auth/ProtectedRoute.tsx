@@ -11,7 +11,7 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, requireAuth = false, guestOnly = false }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading } = useAuth()
+  const { isAuthenticated, isLoading, isChecking } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
 
@@ -19,18 +19,19 @@ export function ProtectedRoute({ children, requireAuth = false, guestOnly = fals
     if (isLoading) return
 
     if (requireAuth && !isAuthenticated) {
-      router.push('/login')
+      router.replace(`/login?next=${encodeURIComponent(pathname)}`)
     }
 
     if (guestOnly && isAuthenticated) {
-      router.push('/')
+      const next = new URLSearchParams(window.location.search).get('next')
+      router.replace(next && /^\/(dashboard|assets|allocation|reports|settings)$/.test(next) ? next : '/dashboard')
     }
   }, [isAuthenticated, isLoading, requireAuth, guestOnly, router, pathname])
 
-  if (isLoading) {
+  if (isChecking || (isLoading && !guestOnly)) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+        <p role="status" className="text-gray-500">正在验证登录状态…</p>
       </div>
     )
   }

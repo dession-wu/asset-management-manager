@@ -1,19 +1,21 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
 import type { AuthUser, AuthTokens, LoginCredentials, RegisterCredentials, AuthState } from '@/types'
+import { useAssetStore } from '@/stores/assetStore'
 
 interface AuthStore {
   authState: AuthState
   user: AuthUser | null
   tokens: AuthTokens | null
   error: string | null
+  rememberMe: boolean
 
   isAuthenticated: () => boolean
   isLoading: () => boolean
 
   login: (credentials: LoginCredentials) => Promise<void>
   register: (credentials: RegisterCredentials) => Promise<void>
-  logout: () => void
+  logout: () => Promise<void>
   refreshToken: () => Promise<void>
   checkAuth: () => Promise<void>
   clearError: () => void
@@ -28,6 +30,7 @@ export const useAuthStore = create<AuthStore>()(
       user: null,
       tokens: null,
       error: null,
+      rememberMe: false,
 
       isAuthenticated: () => get().authState === 'authenticated',
       isLoading: () => get().authState === 'loading',
@@ -39,6 +42,7 @@ export const useAuthStore = create<AuthStore>()(
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(credentials),
+            signal: AbortSignal.timeout(15000),
           })
 
           const data = await response.json()
@@ -49,6 +53,7 @@ export const useAuthStore = create<AuthStore>()(
 
           set({
             authState: 'authenticated',
+            rememberMe: credentials.rememberMe,
             user: data.user,
             tokens: {
               accessToken: data.accessToken,
@@ -57,11 +62,12 @@ export const useAuthStore = create<AuthStore>()(
             },
             error: null,
           })
-          localStorage.setItem('access_token', data.accessToken)
-        } catch (err: any) {
+          localStorage.removeItem('access_token')
+          useAssetStore.getState().reset()
+        } catch (err: unknown) {
           set({
             authState: 'unauthenticated',
-            error: err.message || '登录失败',
+            error: err instanceof TypeError ? '网络连接失败，请检查网络后重试' : err instanceof DOMException ? '连接超时，请稍后重试' : err instanceof Error ? err.message : '登录失败，请重试',
           })
           throw err
         }
@@ -92,17 +98,27 @@ export const useAuthStore = create<AuthStore>()(
             },
             error: null,
           })
-          localStorage.setItem('access_token', data.accessToken)
-        } catch (err: any) {
+          localStorage.removeItem('access_token')
+          useAssetStore.getState().reset()
+        } catch (err: unknown) {
           set({
             authState: 'unauthenticated',
-            error: err.message || '注册失败',
+            error: err instanceof Error ? err.message : '注册失败',
           })
           throw err
         }
       },
 
-      logout: () => {
+      logout: async () => {
+        const { tokens } = get()
+        if (tokens?.accessToken) {
+          const response = await fetch(`${API_BASE}/api/auth/logout`, {
+            method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${tokens.accessToken}`},
+            body:JSON.stringify({refreshToken:tokens.refreshToken}), signal:AbortSignal.timeout(15000),
+          })
+          if (!response.ok && response.status!==401) throw new Error('退出未完成，请重试。')
+        }
+        useAssetStore.getState().reset()
         set({
           authState: 'unauthenticated',
           user: null,
@@ -137,7 +153,7 @@ export const useAuthStore = create<AuthStore>()(
             },
           })
         } catch {
-          get().logout()
+          void get().logout().catch(() => set({authState:'unauthenticated',user:null,tokens:null}))
         }
       },
 
@@ -157,7 +173,13 @@ export const useAuthStore = create<AuthStore>()(
 
           if (!response.ok) {
             // Try to refresh token
+            if (response.status !== 401) throw new Error('暂时无法验证登录状态')
             await get().refreshToken()
+            const refreshed = get().tokens
+            if (!refreshed) return
+            const retry = await fetch(`${API_BASE}/api/auth/me`, { headers: { Authorization: `Bearer ${refreshed.accessToken}` } })
+            if (!retry.ok) { await get().logout(); return }
+            set({ authState: 'authenticated', user: await retry.json() })
             return
           }
 
@@ -172,12 +194,20 @@ export const useAuthStore = create<AuthStore>()(
     }),
     {
       name: 'auth-storage',
-      partialize: (state) => ({ tokens: state.tokens }),
-      onRehydrateStorage: () => (state) => {
-        if (state?.tokens?.accessToken) {
-          localStorage.setItem('access_token', state.tokens.accessToken)
-        }
-      },
+      partialize: (state) => ({ tokens: state.tokens, rememberMe: state.rememberMe }),
+      storage: createJSONStorage(() => ({
+        getItem: name => localStorage.getItem(name) || sessionStorage.getItem(name),
+        setItem: (name, value) => {
+          const remember = JSON.parse(value).state.rememberMe
+          const target = remember ? localStorage : sessionStorage
+          const other = remember ? sessionStorage : localStorage
+          other.removeItem(name)
+          target.setItem(name, value)
+        },
+        removeItem: name => { localStorage.removeItem(name); sessionStorage.removeItem(name) },
+      })),
     }
   )
 )
+
+

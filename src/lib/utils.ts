@@ -2,6 +2,8 @@ import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 
 export function formatCurrency(amount: number, currency: string = 'CNY'): string {
+  // Existing records may contain legacy free-form currency codes.
+  if (!/^[A-Za-z]{3}$/.test(currency)) return `${amount.toFixed(2)} ${currency}`;
   const formatter = new Intl.NumberFormat('zh-CN', {
     style: 'currency',
     currency: currency,

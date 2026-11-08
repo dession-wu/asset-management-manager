@@ -1,0 +1,14 @@
+FROM local-asset-manager-app:before-branding AS deps
+USER root
+WORKDIR /brand-build
+ENV NODE_ENV=development NEXT_TELEMETRY_DISABLED=1
+COPY package.json package-lock.json ./
+RUN npm config set registry https://registry.npmmirror.com && npm ci --no-audit --no-fund
+FROM deps AS build
+COPY . .
+ENV NODE_ENV=production
+RUN npm run build
+FROM local-asset-manager-app:before-branding
+COPY --from=build --chown=nextjs:nodejs /brand-build/.next/standalone /app/
+COPY --from=build --chown=nextjs:nodejs /brand-build/.next/static /app/.next/static
+COPY --from=build --chown=nextjs:nodejs /brand-build/public /app/public

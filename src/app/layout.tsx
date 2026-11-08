@@ -1,20 +1,15 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import "./ledger.css";
+import "./wealth.css";
 
 export const metadata: Metadata = {
-  title: "资产管理 - 个人资产管理平台",
+  icons: {
+    icon: [{ url: "/brand/icon.svg?v=20261103-brand1", type: "image/svg+xml" }, { url: "/favicon.ico?v=20261103-brand1" }],
+    apple: "/brand/icon-180.png",
+  },
+  title: "资产账本 · 持仓与收益管理",
   description: "安全、便捷的个人资产管理工具",
 };
 
@@ -24,10 +19,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="zh-CN"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
+    <html lang="zh-CN" className="h-full antialiased">
       <body className="min-h-full flex flex-col">
         {children}
         <Toaster position="top-right" richColors />

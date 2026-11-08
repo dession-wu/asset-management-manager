@@ -13,7 +13,8 @@ export function useAuth() {
   return {
     user: auth.user,
     isAuthenticated: auth.isAuthenticated(),
-    isLoading: auth.isLoading(),
+    isLoading: auth.isLoading() || auth.authState === 'idle',
+    isChecking: auth.authState === 'idle',
     error: auth.error,
     login: auth.login,
     register: auth.register,

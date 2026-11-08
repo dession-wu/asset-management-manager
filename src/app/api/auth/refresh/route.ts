@@ -17,12 +17,14 @@ export async function POST(request: NextRequest) {
 
     // Generate new tokens
     const newAccessToken = await createToken({
+      sid: claims.sid,
       sub: claims.sub,
       email: claims.email,
       role: claims.role,
     })
 
     const newRefreshToken = await createRefreshToken({
+      sid: claims.sid,
       sub: claims.sub,
       email: claims.email,
       role: claims.role,
@@ -40,3 +42,4 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+

@@ -212,6 +212,7 @@ export interface AuthError {
 }
 
 export interface JwtClaims {
+  sid?: string
   sub: string;
   email: string;
   role: string;
@@ -219,4 +220,3 @@ export interface JwtClaims {
   exp: number;
 }
 
-export type { Database } from './database';
