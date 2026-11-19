@@ -24,7 +24,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgres://asset_manager:${POSTGRES_PASSWORD:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      DATABASE_URL: postgres://asset_manager:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/asset_manager
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       REFRESH_SECRET: ${REFRESH_SECRET:?REFRESH_SECRET is required}
       NODE_ENV: production
